@@ -12,25 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package api
+package kb
 
-import (
-	"io"
-	"net/http"
+const sqlite_createAuth = `CREATE TABLE IF NOT EXISTS auth (
+	user TEXT PRIMARY KEY,
+	hash TEXT NOT NULL
+)`
 
-	"lachut.net/gogs/dslachut/go-irleak/kb"
-)
+const sqlite_createToken = `CREATE TABLE IF NOT EXISTS token (
+	user TEXT REFERENCES auth (user),
+	token TEXT UNIQUE NOT NULL,
+	exp INTEGER NOT NULL
+)`
 
-func TemperatureHandler(w http.ResponseWriter, r *http.Request, k kb.KB) {
-	if r.Method == "POST" {
-		temperaturePost(w, r, k)
-		//} else if r.Method == "GET" {
-		//	temperatureGet(w, r)
-	} else {
-		w.WriteHeader(http.StatusBadRequest)
-	}
-}
-
-func temperaturePost(w http.ResponseWriter, r *http.Request, k kb.KB) {
-	io.WriteString(w, "hello")
-}
+const sqlite_getHash = `SELECT hash FROM auth WHERE user=?`

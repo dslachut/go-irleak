@@ -19,7 +19,7 @@ import (
 	"log"
 	s "strings"
 
-	_ "github.github.com/mattn/go-sqlite3"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type sqliteKB struct {
@@ -29,24 +29,24 @@ type sqliteKB struct {
 type query struct {
 	queryString string
 	arguments   []interface{}
-	rows        chan []interface{}
+	rows        chan []map[string]interface{}
 	result      chan sql.Result
 }
 
-func NewSQliteKB(dbFile string, sqliteOpts map[string]string) *sqliteKB {
+func NewSQLiteKB(dbFile string, sqliteOpts map[string]string) KB {
 	if sqliteOpts != nil && len(sqliteOpts) > 0 {
 		dbFile = s.Join([]string{"file:", "?"}, dbFile)
 		args := make([]string, 0, len(sqliteOpts))
 		for k, v := range sqliteOpts {
-			append(args, s.Join([]string{k, v}, "="))
+			args = append(args, s.Join([]string{k, v}, "="))
 		}
-		allArgs = s.Join(args, "&")
+		allArgs := s.Join(args, "&")
 		dbFile = s.Join([]string{dbFile, allArgs}, "")
 	}
 
-	kb := &sqliteKB{inbound: make(chan *query)}
-	go kbLoop(dbFile, kb)
-	return kb
+	newKB := &sqliteKB{inbound: make(chan *query)}
+	go kbLoop(dbFile, newKB)
+	return newKB
 }
 
 func kbLoop(dbFile string, kb *sqliteKB) {
@@ -56,15 +56,17 @@ func kbLoop(dbFile string, kb *sqliteKB) {
 	}
 	defer db.Close()
 
+	initDB(db)
+
 	for {
 		q, ok := <-kb.inbound
 		if !ok {
 			break
 		}
 
-		if q.rows == nil && q.result != nil {
+		if q.result != nil {
 			doInsert(db, q)
-		} else if q.rows != nil && q.result == nil {
+		} else if q.rows != nil {
 			doQuery(db, q)
 		} else {
 			continue
@@ -75,14 +77,84 @@ func kbLoop(dbFile string, kb *sqliteKB) {
 func doInsert(db *sql.DB, q *query) {
 	stmt, err := db.Prepare(q.queryString)
 	if err != nil {
-		Close(q.result)
+		close(q.result)
 		return
 	}
 	defer stmt.Close()
 
 	res, err := stmt.Exec(q.arguments...)
 	if err != nil {
-		Close(q.result)
+		close(q.result)
 		return
 	}
+
+	q.result <- res
+	close(q.result)
+}
+
+func doQuery(db *sql.DB, q *query) {
+	stmt, err := db.Prepare(q.queryString)
+	if err != nil {
+		close(q.rows)
+		return
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query(q.arguments...)
+	if err != nil {
+		close(q.rows)
+		return
+	}
+	defer rows.Close()
+
+	cols, err := rows.Columns()
+	if err != nil {
+		close(q.rows)
+		return
+	}
+
+	outRows := make([]map[string]interface{}, 1)
+	for rows.Next() {
+		newRow := make(map[string]interface{})
+		vals := make([]interface{}, len(cols))
+		valPtrs := make([]interface{}, len(cols))
+		for i, _ := range cols {
+			valPtrs[i] = &vals[i]
+		}
+		rows.Scan(valPtrs...)
+		for i, col := range cols {
+			newRow[col] = vals[i]
+		}
+		outRows = append(outRows, newRow)
+	}
+	q.rows <- outRows
+	close(q.rows)
+}
+
+func initDB(db *sql.DB) {
+	tx, err := db.Begin()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer tx.Commit()
+
+	_, err = tx.Exec(sqlite_createAuth)
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = tx.Exec(sqlite_createToken)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (k *sqliteKB) GetHash(user string) string {
+	q := new(query)
+	q.queryString = sqlite_getHash
+	q.arguments = []interface{}{user}
+	q.rows = make(chan []map[string]interface{})
+	q.result = nil
+	k.inbound <- q
+	rows := <-q.rows
+	return rows[0]["hash"].(string)
 }

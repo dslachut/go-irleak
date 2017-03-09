@@ -12,25 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package api
+package kb
 
-import (
-	"io"
-	"net/http"
-
-	"lachut.net/gogs/dslachut/go-irleak/kb"
-)
-
-func TemperatureHandler(w http.ResponseWriter, r *http.Request, k kb.KB) {
-	if r.Method == "POST" {
-		temperaturePost(w, r, k)
-		//} else if r.Method == "GET" {
-		//	temperatureGet(w, r)
-	} else {
-		w.WriteHeader(http.StatusBadRequest)
-	}
-}
-
-func temperaturePost(w http.ResponseWriter, r *http.Request, k kb.KB) {
-	io.WriteString(w, "hello")
+type KB interface {
 }

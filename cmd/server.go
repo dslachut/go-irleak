@@ -20,6 +20,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"lachut.net/gogs/dslachut/go-irleak/api"
+	"lachut.net/gogs/dslachut/go-irleak/kb"
 )
 
 // serverCmd represents the server command
@@ -33,9 +34,16 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		activeKB := kb.NewSQLiteKB("tmp.db", nil)
 
-		http.HandleFunc("/api/temp", api.TemperatureHandler)
-		http.HandleFunc("/api/auth", api.AuthHandler)
+		http.HandleFunc("/api/temp", func(w http.ResponseWriter, r *http.Request) {
+			api.TemperatureHandler(w, r, activeKB)
+		})
+
+		http.HandleFunc("/api/auth", func(w http.ResponseWriter, r *http.Request) {
+			api.AuthHandler(w, r, activeKB)
+		})
+
 		log.Println("serving IRLeak API on port 11021")
 		http.ListenAndServe(":11021", nil)
 	},

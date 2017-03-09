@@ -20,6 +20,9 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+
+	"github.com/elithrar/simple-scrypt"
+	"lachut.net/gogs/dslachut/go-irleak/kb"
 )
 
 type authPostBody struct {
@@ -32,9 +35,9 @@ type authResponse struct {
 	Token   string `json:"token"`
 }
 
-func AuthHandler(w http.ResponseWriter, r *http.Request) {
+func AuthHandler(w http.ResponseWriter, r *http.Request, k kb.KB) {
 	if r.Method == "POST" {
-		authPost(w, r)
+		authPost(w, r, k)
 		//} else if r.Method == "GET" {
 		//	authGet(w, r)
 	} else {
@@ -43,7 +46,7 @@ func AuthHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func authPost(w http.ResponseWriter, r *http.Request) {
+func authPost(w http.ResponseWriter, r *http.Request, k kb.KB) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		requestFailed(w, http.StatusNoContent)
