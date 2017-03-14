@@ -14,15 +14,39 @@
 
 package kb
 
+// Create the tables
+
 const sqlite_createAuth = `CREATE TABLE IF NOT EXISTS auth (
 	user TEXT PRIMARY KEY,
 	hash TEXT NOT NULL
 )`
 
-const sqlite_createToken = `CREATE TABLE IF NOT EXISTS token (
+const sqlite_createToken = `CREATE TABLE IF NOT EXISTS tokens (
 	user TEXT REFERENCES auth (user),
 	token TEXT UNIQUE NOT NULL,
 	exp INTEGER NOT NULL
 )`
 
+const sqlite_createTemperature = `CREATE TABLE IF NOT EXISTS temperatures(
+	user TEXT REFERENCES auth (user),
+	sensor TEXT NOT NULL,
+	timestamp NUMERIC NOT NULL,
+	value NUMERIC NOT NULL,
+	PRIMARY KEY (user,sensor,timestamp)
+)`
+
+// auth functions
+
 const sqlite_getHash = `SELECT hash FROM auth WHERE user=?`
+
+const sqlite_addToken = `INSERT INTO tokens VALUES (?, ?, ?)`
+
+const sqlite_addUser = `INSERT INTO auth VALUES (?, ?)`
+
+const sqlite_getUser = `SELECT user, exp FROM tokens WHERE token = ?`
+
+const sqlite_purgeTokens = `DELETE FROM tokens WHERE exp < ?`
+
+// data functions
+
+const sqlite_addTemperature = `INSERT INTO temperatures VALUES (?, ?, ?, ?)`

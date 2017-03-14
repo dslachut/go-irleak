@@ -15,11 +15,13 @@
 package api
 
 import (
+	"crypto/rand"
 	"encoding/json"
-	"io"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/elithrar/simple-scrypt"
 	"lachut.net/gogs/dslachut/go-irleak/kb"
@@ -28,11 +30,6 @@ import (
 type authPostBody struct {
 	User string `json:"user"`
 	Pass string `json:"password"`
-}
-
-type authResponse struct {
-	Success bool   `json:"success"`
-	Token   string `json:"token"`
 }
 
 func AuthHandler(w http.ResponseWriter, r *http.Request, k kb.KB) {
@@ -57,7 +54,7 @@ func authPost(w http.ResponseWriter, r *http.Request, k kb.KB) {
 	rec := authPostBody{}
 	if json.Unmarshal(body, &rec) != nil {
 		requestFailed(w, http.StatusInternalServerError)
-		log.Printf("request not in json format")
+		log.Printf("request not in json format\n")
 		return
 	}
 
@@ -67,19 +64,57 @@ func authPost(w http.ResponseWriter, r *http.Request, k kb.KB) {
 		return
 	}
 
-	hash, err := scrypt.GenerateFromPassword([]byte(rec.Pass), scrypt.DefaultParams)
-	if err != nil {
-		requestFailed(w, http.StatusInternalServerError)
-		log.Printf("failed to hash password")
+	hash, ok := k.GetHash(rec.User)
+	if !ok {
+		requestFailed(w, http.StatusNotFound)
+		log.Printf("user '%s' not found\n", rec.User)
 		return
 	}
-	out := rec.User + " " + rec.Pass + " " + string(hash)
-	io.WriteString(w, out)
+
+	err = scrypt.CompareHashAndPassword(hash, []byte(rec.Pass))
+	if err != nil {
+		requestFailed(w, http.StatusForbidden)
+		log.Printf("bad password\n")
+		return
+	}
+
+	token, err := generateToken(rec.User, k)
+	if err != nil || token == "" {
+		requestFailed(w, http.StatusInternalServerError)
+		log.Printf("token generating error\n")
+		return
+	}
+
+	success := apiResponse{true, token}
+	payload, _ := json.Marshal(success)
+	w.Write(payload)
 }
 
-func requestFailed(w http.ResponseWriter, status int) {
-	failure := authResponse{false, ""}
-	payload, _ := json.Marshal(failure)
-	w.WriteHeader(status)
-	w.Write(payload)
+func generateToken(user string, k kb.KB) (string, error) {
+	tokenBytes := make([]byte, 16)
+	_, err := rand.Read(tokenBytes)
+	if err != nil {
+		return "", err
+	}
+	token := fmt.Sprintf("%x", tokenBytes)
+	exp := time.Now().Unix() + 3600
+	k.AddToken(user, token, exp)
+	return token, nil
+}
+
+func checkToken(token string, k kb.KB) (user string, newToken string, ok bool) {
+	now := time.Now().Unix()
+	user, exp, ok := k.GetUser(token)
+	if !ok || exp < now {
+		log.Printf("%v.%v.%v.%v\n", user, exp, ok, token)
+		return "", "", ok
+	}
+
+	newToken, err := generateToken(user, k)
+	if err != nil {
+		log.Println(err)
+		return "", "", ok
+	}
+
+	return
 }

@@ -24,6 +24,7 @@ import (
 
 type sqliteKB struct {
 	inbound chan *query
+	done    chan bool
 }
 
 type query struct {
@@ -59,17 +60,17 @@ func kbLoop(dbFile string, kb *sqliteKB) {
 	initDB(db)
 
 	for {
-		q, ok := <-kb.inbound
-		if !ok {
-			break
-		}
-
-		if q.result != nil {
-			doInsert(db, q)
-		} else if q.rows != nil {
-			doQuery(db, q)
-		} else {
-			continue
+		select {
+		case q := <-kb.inbound:
+			if q.result != nil {
+				doInsert(db, q)
+			} else if q.rows != nil {
+				doQuery(db, q)
+			} else {
+				continue
+			}
+		case <-kb.done:
+			return
 		}
 	}
 }
@@ -77,6 +78,7 @@ func kbLoop(dbFile string, kb *sqliteKB) {
 func doInsert(db *sql.DB, q *query) {
 	stmt, err := db.Prepare(q.queryString)
 	if err != nil {
+		log.Println(err)
 		close(q.result)
 		return
 	}
@@ -84,6 +86,7 @@ func doInsert(db *sql.DB, q *query) {
 
 	res, err := stmt.Exec(q.arguments...)
 	if err != nil {
+		log.Println(err)
 		close(q.result)
 		return
 	}
@@ -96,6 +99,7 @@ func doQuery(db *sql.DB, q *query) {
 	stmt, err := db.Prepare(q.queryString)
 	if err != nil {
 		close(q.rows)
+		log.Println(err)
 		return
 	}
 	defer stmt.Close()
@@ -103,6 +107,7 @@ func doQuery(db *sql.DB, q *query) {
 	rows, err := stmt.Query(q.arguments...)
 	if err != nil {
 		close(q.rows)
+		log.Println(err)
 		return
 	}
 	defer rows.Close()
@@ -110,10 +115,11 @@ func doQuery(db *sql.DB, q *query) {
 	cols, err := rows.Columns()
 	if err != nil {
 		close(q.rows)
+		log.Println(err)
 		return
 	}
 
-	outRows := make([]map[string]interface{}, 1)
+	outRows := make([]map[string]interface{}, 0)
 	for rows.Next() {
 		newRow := make(map[string]interface{})
 		vals := make([]interface{}, len(cols))
@@ -146,15 +152,104 @@ func initDB(db *sql.DB) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	_, err = tx.Exec(sqlite_createTemperature)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
-func (k *sqliteKB) GetHash(user string) string {
-	q := new(query)
-	q.queryString = sqlite_getHash
-	q.arguments = []interface{}{user}
-	q.rows = make(chan []map[string]interface{})
-	q.result = nil
+func (k *sqliteKB) Stop() {
+	close(k.done)
+}
+
+func (k *sqliteKB) GetHash(user string) ([]byte, bool) {
+	q := &query{
+		queryString: sqlite_getHash,
+		arguments:   []interface{}{user},
+		rows:        make(chan []map[string]interface{}),
+		result:      nil,
+	}
 	k.inbound <- q
 	rows := <-q.rows
-	return rows[0]["hash"].(string)
+	if len(rows) == 1 {
+		return rows[0]["hash"].([]byte), true
+	} else {
+		return nil, false
+	}
+}
+
+func (k *sqliteKB) AddToken(user, token string, expiration int64) bool {
+	q := &query{
+		queryString: sqlite_addToken,
+		arguments:   []interface{}{user, token, expiration},
+		rows:        nil,
+		result:      make(chan sql.Result),
+	}
+	k.inbound <- q
+	_, err := (<-q.result).RowsAffected()
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+func (k *sqliteKB) AddUser(user, hash string) bool {
+	q := &query{
+		queryString: sqlite_addUser,
+		arguments:   []interface{}{user, hash},
+		rows:        nil,
+		result:      make(chan sql.Result),
+	}
+	k.inbound <- q
+
+	res, ok := <-q.result
+	if !ok {
+		return false
+	}
+
+	_, err := res.RowsAffected()
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+func (k *sqliteKB) GetUser(token string) (string, int64, bool) {
+	q := &query{
+		queryString: sqlite_getUser,
+		arguments:   []interface{}{token},
+		rows:        make(chan []map[string]interface{}),
+		result:      nil,
+	}
+	k.inbound <- q
+	rows := <-q.rows
+	if len(rows) == 1 {
+		//		log.Printf("%T.%T\n", rows[0]["user"], rows[0]["exp"])
+		return string(rows[0]["user"].([]byte)), rows[0]["exp"].(int64), true
+	} else {
+		return "", 0, false
+	}
+}
+
+func (k *sqliteKB) AddTemperature(user, sensor string, timestamp, value float64) bool {
+	q := &query{
+		queryString: sqlite_addTemperature,
+		arguments:   []interface{}{user, sensor, timestamp, value},
+		rows:        nil,
+		result:      make(chan sql.Result),
+	}
+	k.inbound <- q
+
+	res, ok := <-q.result
+	if !ok {
+		return false
+	}
+
+	_, err := res.RowsAffected()
+	if err != nil {
+		return false
+	}
+
+	return true
 }

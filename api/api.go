@@ -12,13 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kb
+package api
 
-type KB interface {
-	GetHash(string) ([]byte, bool)
-	AddToken(string, string, int64) bool
-	AddUser(string, string) bool
-	GetUser(string) (string, int64, bool)
+import (
+	"encoding/json"
+	"net/http"
+)
 
-	AddTemperature(string, string, float64, float64) bool
+type apiResponse struct {
+	Success bool   `json:"success"`
+	Token   string `json:"token"`
+}
+
+func requestFailed(w http.ResponseWriter, status int) {
+	failure := apiResponse{false, ""}
+	payload, _ := json.Marshal(failure)
+	w.WriteHeader(status)
+	w.Write(payload)
 }

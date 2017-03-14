@@ -15,11 +15,20 @@
 package api
 
 import (
-	"io"
+	"encoding/json"
+	"io/ioutil"
+	"log"
 	"net/http"
 
 	"lachut.net/gogs/dslachut/go-irleak/kb"
 )
+
+type temperaturePostBody struct {
+	Token     string  `json:"token"`
+	Sensor    string  `json:"sensor"`
+	Value     float64 `json:"value"`
+	Timestamp float64 `json:"timestamp"`
+}
 
 func TemperatureHandler(w http.ResponseWriter, r *http.Request, k kb.KB) {
 	if r.Method == "POST" {
@@ -32,5 +41,33 @@ func TemperatureHandler(w http.ResponseWriter, r *http.Request, k kb.KB) {
 }
 
 func temperaturePost(w http.ResponseWriter, r *http.Request, k kb.KB) {
-	io.WriteString(w, "hello")
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		requestFailed(w, http.StatusNoContent)
+		log.Printf("empty or errant request body\n")
+		return
+	}
+
+	rec := temperaturePostBody{}
+	if json.Unmarshal(body, &rec) != nil {
+		requestFailed(w, http.StatusInternalServerError)
+		log.Printf("request not in json format\n")
+		return
+	}
+
+	user, newToken, ok := checkToken(rec.Token, k)
+	if !ok {
+		requestFailed(w, http.StatusForbidden)
+		log.Printf("invalid token")
+		return
+	}
+
+	success := apiResponse{true, newToken}
+	ok = k.AddTemperature(user, rec.Sensor, rec.Timestamp, rec.Value)
+	if !ok {
+		success = apiResponse{false, newToken}
+	}
+
+	payload, _ := json.Marshal(success)
+	w.Write(payload)
 }
