@@ -16,92 +16,67 @@ package kb
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	s "strings"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/go-sql-driver/mysql"
 )
 
-type sqliteKB struct {
-	inbound chan *query
-	done    chan bool
+type mysqlKB struct {
+	db *sql.DB
 }
 
-func NewSQLiteKB(dbFile string, sqliteOpts map[string]string) KB {
-	if sqliteOpts != nil && len(sqliteOpts) > 0 {
-		dbFile = s.Join([]string{"file:", "?"}, dbFile)
-		args := make([]string, 0, len(sqliteOpts))
-		for k, v := range sqliteOpts {
+func NewMysqlKB(user, password, dbname string, params map[string]string) *mysqlKB {
+	k := new(mysqlKB)
+	var err error
+	if params != nil {
+		args := make([]string, 0, len(params))
+		for k, v := range params {
 			args = append(args, s.Join([]string{k, v}, "="))
 		}
 		allArgs := s.Join(args, "&")
-		dbFile = s.Join([]string{dbFile, allArgs}, "")
+		k.db, err = sql.Open("mysql", fmt.Sprintf("%s:%s@/%s?%s", user, password, dbname, allArgs))
+	} else {
+		k.db, err = sql.Open("mysql", fmt.Sprintf("%s:%s@/%s", user, password, dbname))
 	}
-
-	newKB := &sqliteKB{inbound: make(chan *query)}
-	go kbLoop(dbFile, newKB)
-	return newKB
-}
-
-func kbLoop(dbFile string, kb *sqliteKB) {
-	db, err := sql.Open("sqlite3", dbFile)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer db.Close()
-
-	initSqliteDB(db)
-
-	for {
-		select {
-		case q := <-kb.inbound:
-			if q.result != nil {
-				doInsert(db, q)
-			} else if q.rows != nil {
-				doQuery(db, q)
-			} else {
-				continue
-			}
-		case <-kb.done:
-			return
-		}
-	}
+	initMysqlDB(k.db)
+	return k
 }
 
-func initSqliteDB(db *sql.DB) {
+func initMysqlDB(db *sql.DB) {
 	tx, err := db.Begin()
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer tx.Commit()
 
-	_, err = tx.Exec(sqlite_createAuth)
+	_, err = tx.Exec(mysql_createAuth)
 	if err != nil {
 		log.Fatal(err)
 	}
-	_, err = tx.Exec(sqlite_createToken)
+	_, err = tx.Exec(mysql_createToken)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	_, err = tx.Exec(sqlite_createTemperature)
+	_, err = tx.Exec(mysql_createTemperature)
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func (k *sqliteKB) Stop() {
-	close(k.done)
-}
-
-func (k *sqliteKB) GetHash(user string) ([]byte, bool) {
+func (k *mysqlKB) GetHash(user string) ([]byte, bool) {
 	q := &query{
-		queryString: sqlite_getHash,
+		queryString: mysql_getHash,
 		arguments:   []interface{}{user},
 		rows:        make(chan []map[string]interface{}),
 		result:      nil,
 	}
-	k.inbound <- q
+	go doQuery(k.db, q)
 	rows := <-q.rows
 	if len(rows) == 1 {
 		return rows[0]["hash"].([]byte), true
@@ -110,14 +85,14 @@ func (k *sqliteKB) GetHash(user string) ([]byte, bool) {
 	}
 }
 
-func (k *sqliteKB) AddToken(user, token string, expiration int64) bool {
+func (k *mysqlKB) AddToken(user, token string, expiration int64) bool {
 	q := &query{
-		queryString: sqlite_addToken,
+		queryString: mysql_addToken,
 		arguments:   []interface{}{user, token, expiration},
 		rows:        nil,
 		result:      make(chan sql.Result),
 	}
-	k.inbound <- q
+	go doInsert(k.db, q)
 	_, err := (<-q.result).RowsAffected()
 	if err != nil {
 		return false
@@ -125,14 +100,14 @@ func (k *sqliteKB) AddToken(user, token string, expiration int64) bool {
 	return true
 }
 
-func (k *sqliteKB) AddUser(user, hash string) bool {
+func (k *mysqlKB) AddUser(user string, hash string) bool {
 	q := &query{
-		queryString: sqlite_addUser,
+		queryString: mysql_addUser,
 		arguments:   []interface{}{user, hash},
 		rows:        nil,
 		result:      make(chan sql.Result),
 	}
-	k.inbound <- q
+	go doInsert(k.db, q)
 
 	res, ok := <-q.result
 	if !ok {
@@ -146,31 +121,31 @@ func (k *sqliteKB) AddUser(user, hash string) bool {
 	return true
 }
 
-func (k *sqliteKB) GetUser(token string) (string, int64, bool) {
+func (k *mysqlKB) GetUser(token string) (string, int64, bool) {
 	q := &query{
-		queryString: sqlite_getUser,
+		queryString: mysql_getUser,
 		arguments:   []interface{}{token},
 		rows:        make(chan []map[string]interface{}),
 		result:      nil,
 	}
-	k.inbound <- q
+	go doQuery(k.db, q)
 	rows := <-q.rows
 	if len(rows) == 1 {
-		//		log.Printf("%T.%T\n", rows[0]["user"], rows[0]["exp"])
+		//              log.Printf("%T.%T\n", rows[0]["user"], rows[0]["exp"])
 		return string(rows[0]["user"].([]byte)), rows[0]["exp"].(int64), true
 	} else {
 		return "", 0, false
 	}
 }
 
-func (k *sqliteKB) AddTemperature(user, sensor string, timestamp, value float64) bool {
+func (k *mysqlKB) AddTemperature(user, sensor string, timestamp, value float64) bool {
 	q := &query{
-		queryString: sqlite_addTemperature,
+		queryString: mysql_addTemperature,
 		arguments:   []interface{}{user, sensor, timestamp, value},
 		rows:        nil,
 		result:      make(chan sql.Result),
 	}
-	k.inbound <- q
+	go doInsert(k.db, q)
 
 	res, ok := <-q.result
 	if !ok {

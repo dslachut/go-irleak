@@ -15,10 +15,12 @@
 package cmd
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"lachut.net/gogs/dslachut/go-irleak/api"
 	"lachut.net/gogs/dslachut/go-irleak/kb"
 )
@@ -34,7 +36,9 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		activeKB := kb.NewSQLiteKB("tmp.db", nil)
+		conf()
+		//activeKB := kb.NewSQLiteKB("tmp.db", nil)
+		activeKB := getKB()
 
 		http.HandleFunc("/api/temp", func(w http.ResponseWriter, r *http.Request) {
 			api.TemperatureHandler(w, r, activeKB)
@@ -44,9 +48,41 @@ to quickly create a Cobra application.`,
 			api.AuthHandler(w, r, activeKB)
 		})
 
-		log.Println("serving IRLeak API on port 11021")
-		http.ListenAndServe(":11021", nil)
+		port := viper.GetString("port")
+		log.Printf("serving IRLeak API on port %s\n", port)
+		http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
 	},
+}
+
+func conf() {
+	viper.SetDefault("port", "11021")
+	viper.SetDefault("dbtype", "sqlite")
+	viper.SetDefault("dbparams", map[string]string{"file": "tmp.db"})
+	viper.SetConfigName("config")
+	viper.AddConfigPath("$HOME/.irleak")
+	viper.AddConfigPath("$HOME/.config/irleak/")
+	viper.AddConfigPath(".")
+	err := viper.ReadInConfig()
+	if err != nil {
+		log.Println(err)
+		log.Println("config file not found, using defaults")
+	}
+	log.Printf("%v\n", viper.AllSettings())
+}
+
+func getKB() kb.KB {
+	switch {
+	case viper.GetString("dbtype") == "sqlite":
+		params := viper.GetStringMapString("dbparams")
+		file := params["file"]
+		delete(params, "file")
+		if len(params) > 0 {
+			return kb.NewSQLiteKB(file, params)
+		} else {
+			return kb.NewSQLiteKB(file, nil)
+		}
+	}
+	return nil
 }
 
 func init() {

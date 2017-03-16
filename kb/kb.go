@@ -14,6 +14,11 @@
 
 package kb
 
+import (
+	"database/sql"
+	"log"
+)
+
 type KB interface {
 	GetHash(string) ([]byte, bool)
 	AddToken(string, string, int64) bool
@@ -21,4 +26,73 @@ type KB interface {
 	GetUser(string) (string, int64, bool)
 
 	AddTemperature(string, string, float64, float64) bool
+}
+
+type query struct {
+	queryString string
+	arguments   []interface{}
+	rows        chan []map[string]interface{}
+	result      chan sql.Result
+}
+
+func doInsert(db *sql.DB, q *query) {
+	stmt, err := db.Prepare(q.queryString)
+	if err != nil {
+		log.Println(err)
+		close(q.result)
+		return
+	}
+	defer stmt.Close()
+
+	res, err := stmt.Exec(q.arguments...)
+	if err != nil {
+		log.Println(err)
+		close(q.result)
+		return
+	}
+
+	q.result <- res
+	close(q.result)
+}
+
+func doQuery(db *sql.DB, q *query) {
+	stmt, err := db.Prepare(q.queryString)
+	if err != nil {
+		close(q.rows)
+		log.Println(err)
+		return
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query(q.arguments...)
+	if err != nil {
+		close(q.rows)
+		log.Println(err)
+		return
+	}
+	defer rows.Close()
+
+	cols, err := rows.Columns()
+	if err != nil {
+		close(q.rows)
+		log.Println(err)
+		return
+	}
+
+	outRows := make([]map[string]interface{}, 0)
+	for rows.Next() {
+		newRow := make(map[string]interface{})
+		vals := make([]interface{}, len(cols))
+		valPtrs := make([]interface{}, len(cols))
+		for i, _ := range cols {
+			valPtrs[i] = &vals[i]
+		}
+		rows.Scan(valPtrs...)
+		for i, col := range cols {
+			newRow[col] = vals[i]
+		}
+		outRows = append(outRows, newRow)
+	}
+	q.rows <- outRows
+	close(q.rows)
 }
