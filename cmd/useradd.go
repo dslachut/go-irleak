@@ -20,7 +20,7 @@ import (
 
 	"github.com/elithrar/simple-scrypt"
 	"github.com/spf13/cobra"
-	"lachut.net/gogs/dslachut/go-irleak/kb"
+	//	"lachut.net/gogs/dslachut/go-irleak/kb"
 )
 
 // useraddCmd represents the useradd command
@@ -31,13 +31,13 @@ var useraddCmd = &cobra.Command{
 
 Usage: irleak useradd username password`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// TODO: Work your own magic here
+		conf()
 		hashBytes, err := scrypt.GenerateFromPassword([]byte(args[1]), scrypt.DefaultParams)
 		if err != nil {
 			log.Fatal(err)
 		}
 		hash := string(hashBytes)
-		k := kb.NewSQLiteKB("tmp.db", nil)
+		k := getKB()
 		ok := k.AddUser(args[0], hash)
 		fmt.Printf("useradd called:\n\tuser: %s\n\tsuccess: %v\n", args[0], ok)
 	},

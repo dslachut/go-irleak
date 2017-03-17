@@ -1,0 +1,7 @@
+# Port Number
+port: 11021
+# Database options
+dbtype: mysql
+params:
+    user: david
+    dbname: irleak

@@ -50,21 +50,25 @@ func NewMysqlKB(user, password, dbname string, params map[string]string) *mysqlK
 func initMysqlDB(db *sql.DB) {
 	tx, err := db.Begin()
 	if err != nil {
+		log.Println("tx start")
 		log.Fatal(err)
 	}
 	defer tx.Commit()
 
 	_, err = tx.Exec(mysql_createAuth)
 	if err != nil {
+		log.Println("create auth")
 		log.Fatal(err)
 	}
 	_, err = tx.Exec(mysql_createToken)
 	if err != nil {
+		log.Println("create token")
 		log.Fatal(err)
 	}
 
 	_, err = tx.Exec(mysql_createTemperature)
 	if err != nil {
+		log.Println("create temp")
 		log.Fatal(err)
 	}
 }
@@ -79,7 +83,7 @@ func (k *mysqlKB) GetHash(user string) ([]byte, bool) {
 	go doQuery(k.db, q)
 	rows := <-q.rows
 	if len(rows) == 1 {
-		return rows[0]["hash"].([]byte), true
+		return rows[0]["hashval"].([]byte), true
 	} else {
 		return nil, false
 	}
@@ -132,7 +136,7 @@ func (k *mysqlKB) GetUser(token string) (string, int64, bool) {
 	rows := <-q.rows
 	if len(rows) == 1 {
 		//              log.Printf("%T.%T\n", rows[0]["user"], rows[0]["exp"])
-		return string(rows[0]["user"].([]byte)), rows[0]["exp"].(int64), true
+		return string(rows[0]["uname"].([]byte)), rows[0]["exp"].(int64), true
 	} else {
 		return "", 0, false
 	}

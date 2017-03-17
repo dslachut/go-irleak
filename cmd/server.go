@@ -19,6 +19,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/bgentry/speakeasy"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"lachut.net/gogs/dslachut/go-irleak/api"
@@ -80,6 +81,27 @@ func getKB() kb.KB {
 			return kb.NewSQLiteKB(file, params)
 		} else {
 			return kb.NewSQLiteKB(file, nil)
+		}
+	case viper.GetString("dbtype") == "mysql":
+		params := viper.GetStringMapString("params")
+		user := params["user"]
+		delete(params, "user")
+		password, ok := params["password"]
+		dbname := params["dbname"]
+		delete(params, "dbname")
+		var err error
+		if ok {
+			delete(params, "password")
+		} else {
+			password, err = speakeasy.Ask(fmt.Sprintf("Password for %s on DB %s: ", user, dbname))
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+		if len(params) > 0 {
+			return kb.NewMysqlKB(user, password, dbname, params)
+		} else {
+			return kb.NewMysqlKB(user, password, dbname, nil)
 		}
 	}
 	return nil

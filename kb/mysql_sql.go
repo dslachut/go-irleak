@@ -17,33 +17,34 @@ package kb
 // Create the tables
 
 const mysql_createAuth = `CREATE TABLE IF NOT EXISTS auth (
-	user TINYTEXT PRIMARY KEY,
-	hash VARBINARY(128) NOT NULL
-)`
+	uname   VARCHAR(255) NOT NULL,
+	hashval VARBINARY(128) NOT NULL,
+	PRIMARY KEY (uname)
+);`
 
 const mysql_createToken = `CREATE TABLE IF NOT EXISTS tokens (
-	user  TINYTEXT REFERENCES auth (user),
+	uname VARCHAR(255) REFERENCES auth (uname),
 	token CHAR(32) UNIQUE NOT NULL,
 	exp   BIGINT NOT NULL
 )`
 
 const mysql_createTemperature = `CREATE TABLE IF NOT EXISTS temperatures(
-	user        TINYTEXT REFERENCES auth (user),
-	sensor      TINYTEXT NOT NULL,
+	uname       VARCHAR(255) REFERENCES auth (uname),
+	sensor      VARCHAR(255) NOT NULL,
 	timestamp   DOUBLE NOT NULL,
 	value       DOUBLE NOT NULL,
-	PRIMARY KEY (user,sensor,timestamp)
+	PRIMARY KEY (uname,sensor,timestamp)
 )`
 
 // auth functions
 
-const mysql_getHash = `SELECT hash FROM auth WHERE user=?`
+const mysql_getHash = `SELECT hashval FROM auth WHERE uname=?`
 
 const mysql_addToken = `INSERT INTO tokens VALUES (?, ?, ?)`
 
 const mysql_addUser = `INSERT INTO auth VALUES (?, ?)`
 
-const mysql_getUser = `SELECT user, exp FROM tokens WHERE token = ?`
+const mysql_getUser = `SELECT uname, exp FROM tokens WHERE token = ?`
 
 const mysql_purgeTokens = `DELETE FROM tokens WHERE exp < ?`
 
