@@ -73,6 +73,10 @@ func initMysqlDB(db *sql.DB) {
 	}
 }
 
+func (k *mysqlKB) Stop() {
+	k.db.Close()
+}
+
 func (k *mysqlKB) GetHash(user string) ([]byte, bool) {
 	q := &query{
 		queryString: mysql_getHash,
@@ -140,6 +144,50 @@ func (k *mysqlKB) GetUser(token string) (string, int64, bool) {
 	} else {
 		return "", 0, false
 	}
+}
+
+func (k *mysqlKB) ExpireToken(token string) bool {
+	q := &query{
+		queryString: mysql_expireToken,
+		arguments:   []interface{}{token},
+		rows:        nil,
+		result:      make(chan sql.Result),
+	}
+	go doInsert(k.db, q)
+
+	res, ok := <-q.result
+	if !ok {
+		return false
+	}
+
+	_, err := res.RowsAffected()
+	if err != nil {
+		return false
+	}
+
+	return true
+}
+
+func (k *mysqlKB) PurgeTokens(expiration int64) bool {
+	q := &query{
+		queryString: mysql_purgeTokens,
+		arguments:   []interface{}{expiration},
+		rows:        nil,
+		result:      make(chan sql.Result),
+	}
+	go doInsert(k.db, q)
+
+	res, ok := <-q.result
+	if !ok {
+		return false
+	}
+
+	_, err := res.RowsAffected()
+	if err != nil {
+		return false
+	}
+
+	return true
 }
 
 func (k *mysqlKB) AddTemperature(user, sensor string, timestamp, value float64) bool {

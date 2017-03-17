@@ -46,6 +46,8 @@ const mysql_addUser = `INSERT INTO auth VALUES (?, ?)`
 
 const mysql_getUser = `SELECT uname, exp FROM tokens WHERE token = ?`
 
+const mysql_expireToken = `UPDATE tokens SET exp=0 where token=?`
+
 const mysql_purgeTokens = `DELETE FROM tokens WHERE exp < ?`
 
 // data functions

@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/elithrar/simple-scrypt"
+	"github.com/spf13/viper"
 	"lachut.net/gogs/dslachut/go-irleak/kb"
 )
 
@@ -97,7 +98,7 @@ func generateToken(user string, k kb.KB) (string, error) {
 		return "", err
 	}
 	token := fmt.Sprintf("%x", tokenBytes)
-	exp := time.Now().Unix() + 3600
+	exp := time.Now().Unix() + viper.GetInt64("exptoken")
 	k.AddToken(user, token, exp)
 	return token, nil
 }
@@ -116,5 +117,19 @@ func checkToken(token string, k kb.KB) (user string, newToken string, ok bool) {
 		return "", "", ok
 	}
 
+	k.ExpireToken(token)
 	return
+}
+
+func PurgeTokens(k kb.KB, done chan bool) {
+	tick := time.NewTicker(time.Second * time.Duration(viper.GetInt64("exptoken")))
+	for {
+		select {
+		case <-tick.C:
+			now := time.Now().Unix()
+			k.PurgeTokens(now)
+		case <-done:
+			return
+		}
+	}
 }

@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/bgentry/speakeasy"
 	"github.com/elithrar/simple-scrypt"
 	"github.com/spf13/cobra"
-	//	"lachut.net/gogs/dslachut/go-irleak/kb"
 )
 
 // useraddCmd represents the useradd command
@@ -32,7 +32,24 @@ var useraddCmd = &cobra.Command{
 Usage: irleak useradd username password`,
 	Run: func(cmd *cobra.Command, args []string) {
 		conf()
-		hashBytes, err := scrypt.GenerateFromPassword([]byte(args[1]), scrypt.DefaultParams)
+		var password string
+		var err error
+		if len(args) == 2 {
+			password = args[1]
+		} else {
+			password, err = speakeasy.Ask("Password for new IRLeak user: ")
+			if err != nil {
+				log.Fatal(err)
+			}
+			pass2, err := speakeasy.Ask("Please re-enter the password:")
+			if err != nil {
+				log.Fatal(err)
+			}
+			if password != pass2 {
+				log.Fatal("New password does not match")
+			}
+		}
+		hashBytes, err := scrypt.GenerateFromPassword([]byte(password), scrypt.DefaultParams)
 		if err != nil {
 			log.Fatal(err)
 		}

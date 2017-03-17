@@ -20,10 +20,13 @@ import (
 )
 
 type KB interface {
+	Stop()
 	GetHash(string) ([]byte, bool)
 	AddToken(string, string, int64) bool
 	AddUser(string, string) bool
 	GetUser(string) (string, int64, bool)
+	ExpireToken(string) bool
+	PurgeTokens(int64) bool
 
 	AddTemperature(string, string, float64, float64) bool
 }

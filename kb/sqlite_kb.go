@@ -163,6 +163,50 @@ func (k *sqliteKB) GetUser(token string) (string, int64, bool) {
 	}
 }
 
+func (k *sqliteKB) ExpireToken(token string) bool {
+	q := &query{
+		queryString: sqlite_expireToken,
+		arguments:   []interface{}{token},
+		rows:        nil,
+		result:      make(chan sql.Result),
+	}
+	k.inbound <- q
+
+	res, ok := <-q.result
+	if !ok {
+		return false
+	}
+
+	_, err := res.RowsAffected()
+	if err != nil {
+		return false
+	}
+
+	return true
+}
+
+func (k *sqliteKB) PurgeTokens(expiration int64) bool {
+	q := &query{
+		queryString: sqlite_purgeTokens,
+		arguments:   []interface{}{expiration},
+		rows:        nil,
+		result:      make(chan sql.Result),
+	}
+	k.inbound <- q
+
+	res, ok := <-q.result
+	if !ok {
+		return false
+	}
+
+	_, err := res.RowsAffected()
+	if err != nil {
+		return false
+	}
+
+	return true
+}
+
 func (k *sqliteKB) AddTemperature(user, sensor string, timestamp, value float64) bool {
 	q := &query{
 		queryString: sqlite_addTemperature,

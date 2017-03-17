@@ -18,6 +18,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/bgentry/speakeasy"
 	"github.com/spf13/cobra"
@@ -40,6 +43,17 @@ to quickly create a Cobra application.`,
 		conf()
 		//activeKB := kb.NewSQLiteKB("tmp.db", nil)
 		activeKB := getKB()
+		sigs := make(chan os.Signal)
+		done := make(chan bool)
+		signal.Notify(sigs, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
+		go api.PurgeTokens(activeKB, done)
+		go func() {
+			sig := <-sigs
+			log.Printf("Caught signal %s\nExiting\n", sig.String())
+			activeKB.Stop()
+			close(done)
+			os.Exit(0)
+		}()
 
 		http.HandleFunc("/api/temp", func(w http.ResponseWriter, r *http.Request) {
 			api.TemperatureHandler(w, r, activeKB)
@@ -59,6 +73,7 @@ func conf() {
 	viper.SetDefault("port", "11021")
 	viper.SetDefault("dbtype", "sqlite")
 	viper.SetDefault("dbparams", map[string]string{"file": "tmp.db"})
+	viper.SetDefault("exptoken", 3600)
 	viper.SetConfigName("config")
 	viper.AddConfigPath("$HOME/.irleak")
 	viper.AddConfigPath("$HOME/.config/irleak/")

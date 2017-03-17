@@ -45,6 +45,8 @@ const sqlite_addUser = `INSERT INTO auth VALUES (?, ?)`
 
 const sqlite_getUser = `SELECT user, exp FROM tokens WHERE token = ?`
 
+const sqlite_expireToken = `UPDATE tokens SET exp=0 where token=?`
+
 const sqlite_purgeTokens = `DELETE FROM tokens WHERE exp < ?`
 
 // data functions
