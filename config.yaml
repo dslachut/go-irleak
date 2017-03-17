@@ -1,7 +1,19 @@
 # Port Number
+# port: 11021
 port: 11021
 # Database options
+# For MySQL or MariaDB
+# dbtype: mysql
+# dbparams:
+#   user: david
+#   dbname: irleak
+#   optionalParam1: optionalVal1
+#   optionalParam2: optionalVal2
+# Or for SQLite
+# dbtype: sqlite
+# dbparams:
+#   
 dbtype: mysql
-params:
+dbparams:
     user: david
     dbname: irleak

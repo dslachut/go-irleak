@@ -98,7 +98,7 @@ func getKB() kb.KB {
 			return kb.NewSQLiteKB(file, nil)
 		}
 	case viper.GetString("dbtype") == "mysql":
-		params := viper.GetStringMapString("params")
+		params := viper.GetStringMapString("dbparams")
 		user := params["user"]
 		delete(params, "user")
 		password, ok := params["password"]
