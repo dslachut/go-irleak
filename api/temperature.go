@@ -24,8 +24,14 @@ import (
 )
 
 type temperaturePostBody struct {
-	Token     string  `json:"token"`
-	Sensor    string  `json:"sensor"`
+	Token     string      `json:"token"`
+	Sensor    string      `json:"sensor"`
+	Value     float64     `json:"value"`
+	Timestamp float64     `json:"timestamp"`
+	Points    []tempPoint `json:"points"`
+}
+
+type tempPoint struct {
 	Value     float64 `json:"value"`
 	Timestamp float64 `json:"timestamp"`
 }
@@ -63,9 +69,16 @@ func temperaturePost(w http.ResponseWriter, r *http.Request, k kb.KB) {
 	}
 
 	success := apiResponse{true, newToken}
-	ok = k.AddTemperature(user, rec.Sensor, rec.Timestamp, rec.Value)
-	if !ok {
-		success = apiResponse{false, newToken}
+	if len(rec.Points) == 0 {
+		ok = k.AddTemperature(user, rec.Sensor, rec.Timestamp, rec.Value)
+		if !ok {
+			success = apiResponse{false, newToken}
+		}
+	} else {
+		for _, pt := range rec.Points {
+			ok = k.AddTemperature(user, rec.Sensor, pt.Timestamp, pt.Value)
+			success.Success = ok && success.Success
+		}
 	}
 
 	payload, _ := json.Marshal(success)

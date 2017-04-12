@@ -106,9 +106,9 @@ func generateToken(user string, k kb.KB) (string, error) {
 func checkToken(token string, k kb.KB) (user string, newToken string, ok bool) {
 	now := time.Now().Unix()
 	user, exp, ok := k.GetUser(token)
-	if !ok || exp < now {
+	if !ok || exp < now || user == "" {
 		log.Printf("%v.%v.%v.%v\n", user, exp, ok, token)
-		return "", "", ok
+		return "", "", false
 	}
 
 	newToken, err := generateToken(user, k)
