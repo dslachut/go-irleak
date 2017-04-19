@@ -51,4 +51,4 @@ const sqlite_purgeTokens = `DELETE FROM tokens WHERE exp < ?`
 
 // data functions
 
-const sqlite_addTemperature = `INSERT INTO temperatures VALUES (?, ?, ?, ?)`
+const sqlite_addTemperature = `INSERT OR IGNORE INTO temperatures VALUES (?, ?, ?, ?)`

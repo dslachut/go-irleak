@@ -201,6 +201,7 @@ func (k *mysqlKB) AddTemperature(user, sensor string, timestamp, value float64) 
 
 	res, ok := <-q.result
 	if !ok {
+		log.Printf("%v\n", q)
 		return false
 	}
 

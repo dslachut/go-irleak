@@ -52,4 +52,4 @@ const mysql_purgeTokens = `DELETE FROM tokens WHERE exp < ?`
 
 // data functions
 
-const mysql_addTemperature = `INSERT INTO temperatures VALUES (?, ?, ?, ?)`
+const mysql_addTemperature = `INSERT IGNORE INTO temperatures VALUES (?, ?, ?, ?)`
