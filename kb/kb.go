@@ -21,14 +21,17 @@ import (
 
 type KB interface {
 	Stop()
-	GetHash(string) ([]byte, bool)
-	AddToken(string, string, int64) bool
-	AddUser(string, string) bool
-	GetUser(string) (string, int64, bool)
-	ExpireToken(string) bool
-	PurgeTokens(int64) bool
+	GetHash(user string) ([]byte, bool)
+	AddToken(user string, token string, expiration int64) bool
+	AddUser(user string, hash string) bool
+	GetUser(token string) (string, int64, bool)
+	ExpireToken(token string) bool
+	PurgeTokens(expiration int64) bool
 
-	AddTemperature(string, string, float64, float64) bool
+	AddTemperature(user, sensor string, timestamp, value float64) bool
+	AddWeather(location, timestamp int64, sunUp bool, temperature, apparentTemperature, cloudCover, humidity, pressure, precipProbability float64) bool
+
+	GetCoordinates() ([][]string, []int64, bool)
 }
 
 type query struct {

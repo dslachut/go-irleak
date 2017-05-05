@@ -88,6 +88,11 @@ func initSqliteDB(db *sql.DB) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	_, err = tx.Exec(sqlite_createLocation)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func (k *sqliteKB) Stop() {
@@ -227,4 +232,55 @@ func (k *sqliteKB) AddTemperature(user, sensor string, timestamp, value float64)
 	}
 
 	return true
+}
+
+func (k *sqliteKB) AddWeather(location, timestamp int64, sunUp bool, temperature, apparentTemperature, cloudCover, humidity, pressure, precipProbability float64) bool {
+	q := &query{
+		queryString: sqlite_addWeather,
+		arguments:   []interface{}{location, timestamp, sunUp, temperature, apparentTemperature, cloudCover, humidity, pressure, precipProbability},
+		rows:        nil,
+		result:      make(chan sql.Result),
+	}
+	k.inbound <- q
+
+	res, ok := <-q.result
+	if !ok {
+		log.Printf("%v\n", q)
+		return false
+	}
+
+	_, err := res.RowsAffected()
+	if err != nil {
+		return false
+	}
+
+	return true
+}
+
+func (k *sqliteKB) GetCoordinates() ([][]string, []int64, bool) {
+	q := &query{
+		queryString: sqlite_getCoordinates,
+		arguments:   nil,
+		rows:        make(chan []map[string]interface{}),
+		result:      nil,
+	}
+	k.inbound <- q
+
+	rows, ok := <-q.rows
+	if !ok {
+		return nil, nil, false
+	}
+	if len(rows) == 0 {
+		return nil, nil, false
+	}
+	coords := make([][]string, 0, len(rows))
+	l_ids := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		pair := make([]string, 2)
+		pair[0] = string(row["lat"].([]byte))
+		pair[1] = string(row["long"].([]byte))
+		coords = append(coords, pair)
+		l_ids = append(l_ids, row["l_id"].(int64))
+	}
+	return coords, l_ids, true
 }

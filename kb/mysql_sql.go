@@ -17,8 +17,8 @@ package kb
 // Create the tables
 
 const mysql_createAuth = `CREATE TABLE IF NOT EXISTS auth (
-	uname   VARCHAR(255) NOT NULL,
-	hashval VARBINARY(128) NOT NULL,
+	uname       VARCHAR(255) NOT NULL,
+	hashval     VARBINARY(128) NOT NULL,
 	PRIMARY KEY (uname)
 );`
 
@@ -34,6 +34,29 @@ const mysql_createTemperature = `CREATE TABLE IF NOT EXISTS temperatures(
 	timestamp   DOUBLE NOT NULL,
 	value       DOUBLE NOT NULL,
 	PRIMARY KEY (uname,sensor,timestamp)
+)`
+
+const mysql_createLocation = `CREATE TABLE IF NOT EXISTS location(
+	l_id        INTEGER AUTO_INCREMENT,
+	uname       VARCHAR(255) REFERENCES auth (uname),
+	place_name  VARCHAR(255) NOT NULL,
+	lat         VARCHAR(12) NOT NULL,
+	long        VARCHAR(12) NOT NULL,
+	PRIMARY KEY (l_id),
+	UNIQUE KEY  (uname,place_name)
+)`
+
+const mysql_createWeather = `CREATE TABLE IF NOT EXISTS weather(
+	l_id                 INTEGER REFERENCES location (l_id),
+	timestamp            DOUBLE,
+	sun_up               BOOLEAN,
+	temperature          DOUBLE,
+	apparent_temperature DOUBLE,
+	cloud_cover          DOUBLE,
+	humidity             DOUBLE,
+	pressure             DOUBLE,
+	precib_probability   DOUBLE,
+	PRIMARY KEY          (l_id, timestamp)
 )`
 
 // auth functions
@@ -53,3 +76,10 @@ const mysql_purgeTokens = `DELETE FROM tokens WHERE exp < ?`
 // data functions
 
 const mysql_addTemperature = `INSERT IGNORE INTO temperatures VALUES (?, ?, ?, ?)`
+
+const mysql_addWeather = `REPLACE INTO weather VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+// location functions
+
+const mysql_getCoordinates = `SELECT l_id, lat, long FROM location`
+const mysql_addLocation = `INSERT INTO location VALUES (?, ?, ?, ?)`

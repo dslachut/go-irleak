@@ -1,7 +1,6 @@
 # Example config file for go-irleak
 # Port Number
 # port: 11021
-port: 11021
 # Database options
 # For MySQL or MariaDB
 # dbtype: mysql
@@ -16,7 +15,18 @@ port: 11021
 # dbparams:
 #   file: irleak.db
 #   optionalParam1: optionalVal1
+# Weather API options
+# weathertype: darksky
+# weatherparams:
+#   key: APIkey
+port: 11021
 dbtype: mysql
 dbparams:
     user: david
     dbname: irleak
+weathertype: darksky
+weatherparams:
+    key: aee0f932085cdbc5776a082ca7d60be9
+    lat: 39.253966
+    long: -76.714454
+

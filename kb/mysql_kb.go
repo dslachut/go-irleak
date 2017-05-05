@@ -71,6 +71,12 @@ func initMysqlDB(db *sql.DB) {
 		log.Println("create temp")
 		log.Fatal(err)
 	}
+
+	_, err = tx.Exec(mysql_createLocation)
+	if err != nil {
+		log.Println("create location")
+		log.Fatal(err)
+	}
 }
 
 func (k *mysqlKB) Stop() {
@@ -211,4 +217,55 @@ func (k *mysqlKB) AddTemperature(user, sensor string, timestamp, value float64) 
 	}
 
 	return true
+}
+
+func (k *mysqlKB) AddWeather(location, timestamp int64, sunUp bool, temperature, apparentTemperature, cloudCover, humidity, pressure, precipProbability float64) bool {
+	q := &query{
+		queryString: mysql_addWeather,
+		arguments:   []interface{}{location, timestamp, sunUp, temperature, apparentTemperature, cloudCover, humidity, pressure, precipProbability},
+		rows:        nil,
+		result:      make(chan sql.Result),
+	}
+	go doInsert(k.db, q)
+
+	res, ok := <-q.result
+	if !ok {
+		log.Printf("%v\n", q)
+		return false
+	}
+
+	_, err := res.RowsAffected()
+	if err != nil {
+		return false
+	}
+
+	return true
+}
+
+func (k *mysqlKB) GetCoordinates() ([][]string, []int64, bool) {
+	q := &query{
+		queryString: mysql_getCoordinates,
+		arguments:   nil,
+		rows:        make(chan []map[string]interface{}),
+		result:      nil,
+	}
+	go doQuery(k.db, q)
+
+	rows, ok := <-q.rows
+	if !ok {
+		return nil, nil, false
+	}
+	if len(rows) == 0 {
+		return nil, nil, false
+	}
+	coords := make([][]string, 0, len(rows))
+	l_ids := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		pair := make([]string, 2)
+		pair[0] = string(row["lat"].([]byte))
+		pair[1] = string(row["long"].([]byte))
+		coords = append(coords, pair)
+		l_ids = append(l_ids, row["l_id"].(int64))
+	}
+	return coords, l_ids, true
 }
