@@ -242,6 +242,46 @@ func (k *mysqlKB) AddWeather(location, timestamp int64, sunUp bool, temperature,
 	return true
 }
 
+func (k *mysqlKB) GetTemperatures(user, sensor string, start, end float64) map[float64]float64 {
+	q := &query{
+		queryString: mysql_getTemperatures,
+		arguments:   []interface{}{user, sensor, start, end},
+		rows:        make(chan []map[string]interface{}),
+		result:      nil,
+	}
+	go doQuery(k.db, q)
+
+	rows, ok := <-q.rows
+	out = make(map[float64]float64)
+	if !ok {
+		return out
+	}
+	for _, row := range rows {
+		out[row["timestamp"].(float64)] = row["value"].(float64)
+	}
+	return out
+}
+
+func (k *mysqlKB) GetTemperatureSensors(user string, start, end float64) []string {
+	q := &query{
+		queryString: mysql_getTemperatureSensors,
+		arguments:   []interface{}{user, start, end},
+		rows:        make(chan []map[string]interface{}),
+		result:      nil,
+	}
+	go doQuery(k.db, q)
+
+	rows, ok := <-q.rows
+	if !ok {
+		return nil
+	}
+	sens := make([]string, 0, len(rows))
+	for _, row := range rows {
+		sens = append(sens, string(row["sensor"].([]byte)))
+	}
+	return sens
+}
+
 func (k *mysqlKB) GetCoordinates() ([][]string, []int64, bool) {
 	q := &query{
 		queryString: mysql_getCoordinates,

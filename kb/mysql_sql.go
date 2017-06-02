@@ -41,7 +41,7 @@ const mysql_createLocation = `CREATE TABLE IF NOT EXISTS location(
 	uname       VARCHAR(255) REFERENCES auth (uname),
 	place_name  VARCHAR(255) NOT NULL,
 	lat         VARCHAR(12) NOT NULL,
-	long        VARCHAR(12) NOT NULL,
+	lon         VARCHAR(12) NOT NULL,
 	PRIMARY KEY (l_id),
 	UNIQUE KEY  (uname,place_name)
 )`
@@ -78,6 +78,10 @@ const mysql_purgeTokens = `DELETE FROM tokens WHERE exp < ?`
 const mysql_addTemperature = `INSERT IGNORE INTO temperatures VALUES (?, ?, ?, ?)`
 
 const mysql_addWeather = `REPLACE INTO weather VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+const mysql_getTemperatures = `SELECT timestamp, value FROM temperatures WHERE uname=? and sensor=? and timestamp>=? and timestamp<=?`
+
+const mysql_getTemperatureSensors = `SELECT DISTINCT sensor FROM temperatures WHERE uname=? and timestamp>=? and timestamp<=?`
 
 // location functions
 

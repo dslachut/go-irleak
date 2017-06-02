@@ -40,7 +40,7 @@ const sqlite_createLocation = `CREATE TABLE IF NOT EXISTS location(
 	user TEXT REFERENCES auth (user),
 	place_name TEXT NOT NULL,
 	lat TEXT NOT NULL,
-	long TEXT NOT NULL,
+	lon TEXT NOT NULL,
 	PRIMARY KEY (l_id),
 	UNIQUE (user, place_name)
 )`
@@ -77,6 +77,10 @@ const sqlite_purgeTokens = `DELETE FROM tokens WHERE exp < ?`
 const sqlite_addTemperature = `INSERT OR IGNORE INTO temperatures VALUES (?, ?, ?, ?)`
 
 const sqlite_addWeather = `REPLACE INTO weather VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+const sqlite_getTemperatures = `SELECT timestamp, value FROM temperatures WHERE user=? and sensor=? and timestamp>=? and timestamp<=?`
+
+const sqlite_getTemperatureSensors = `SELECT DISTINCT sensor FROM temperatures WHERE user=? and timestamp>=? and timestamp<=?`
 
 // location functions
 

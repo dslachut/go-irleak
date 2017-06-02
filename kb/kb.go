@@ -30,6 +30,8 @@ type KB interface {
 
 	AddTemperature(user, sensor string, timestamp, value float64) bool
 	AddWeather(location, timestamp int64, sunUp bool, temperature, apparentTemperature, cloudCover, humidity, pressure, precipProbability float64) bool
+	GetTemperatures(user, sensor string, start, end float64) map[float64]float64
+	GetTemperatureSensors(user string, start, end float64) []string
 
 	GetCoordinates() ([][]string, []int64, bool)
 }

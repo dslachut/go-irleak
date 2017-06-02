@@ -257,6 +257,46 @@ func (k *sqliteKB) AddWeather(location, timestamp int64, sunUp bool, temperature
 	return true
 }
 
+func (k *sqliteKB) GetTemperatures(user, sensor string, start, end float64) map[float64]float64 {
+	q := &query{
+		queryString: sqlite_getTemperatures,
+		arguments:   []interface{}{user, sensor, start, end},
+		rows:        make(chan []map[string]interface{}),
+		result:      nil,
+	}
+	k.inbound <- q
+
+	rows, ok := <-q.rows
+	out = make(map[float64]float64)
+	if !ok {
+		return out
+	}
+	for _, row := range rows {
+		out[row["timestamp"].(float64)] = row["value"].(float64)
+	}
+	return out
+}
+
+func (k *sqliteKB) GetTemperatureSensors(user string, start, end float64) []string {
+	q := &query{
+		queryString: sqlite_getTemperatureSensors,
+		arguments:   []interface{}{user, start, end},
+		rows:        make(chan []map[string]interface{}),
+		result:      nil,
+	}
+	k.inbound <- q
+
+	rows, ok := <-q.rows
+	if !ok {
+		return nil
+	}
+	sens := make([]string, 0, len(rows))
+	for _, row := range rows {
+		sens = append(sens, string(row["sensor"].([]byte)))
+	}
+	return sens
+}
+
 func (k *sqliteKB) GetCoordinates() ([][]string, []int64, bool) {
 	q := &query{
 		queryString: sqlite_getCoordinates,
