@@ -19,14 +19,5 @@
 # weathertype: darksky
 # weatherparams:
 #   key: APIkey
-port: 11021
-dbtype: mysql
-dbparams:
-    user: david
-    dbname: irleak
-weathertype: darksky
-weatherparams:
-    key: aee0f932085cdbc5776a082ca7d60be9
-    lat: 39.253966
-    long: -76.714454
+
 
